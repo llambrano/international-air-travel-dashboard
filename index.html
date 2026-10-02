@@ -1,0 +1,711 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>International Air Travel Dashboard</title>
+<meta name="description" content="U.S. citizen international air departures by destination, January 2011 to June 2026.">
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7;
+    --surface: #fcfcfb;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --accent: #2a78d6;
+    --accent-soft: #cde2fb;
+    --accent-text: #1c5cab;
+    --dim: #d6d4cc;
+    --pos: #2a78d6;
+    --neg: #e34948;
+    --up-text: #006300;
+    --down-text: #b42f2e;
+    --band: rgba(137,135,129,0.12);
+    --heat-0: #eef4fc;
+    --heat-1: #0d366b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #0d0d0d;
+      --surface: #1a1a19;
+      --ink: #ffffff;
+      --ink-2: #c3c2b7;
+      --muted: #898781;
+      --grid: #2c2c2a;
+      --axis: #383835;
+      --border: rgba(255,255,255,0.10);
+      --accent: #3987e5;
+      --accent-soft: #184f95;
+      --accent-text: #6da7ec;
+      --dim: #3a3a37;
+      --pos: #3987e5;
+      --neg: #e66767;
+      --up-text: #0ca30c;
+      --down-text: #ef7d7c;
+      --band: rgba(195,194,183,0.08);
+      --heat-0: #1f2a38;
+      --heat-1: #9ec5f4;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255,255,255,0.10);
+    --accent: #3987e5;
+    --accent-soft: #184f95;
+    --accent-text: #6da7ec;
+    --dim: #3a3a37;
+    --pos: #3987e5;
+    --neg: #e66767;
+    --up-text: #0ca30c;
+    --down-text: #ef7d7c;
+    --band: rgba(195,194,183,0.08);
+    --heat-0: #1f2a38;
+    --heat-1: #9ec5f4;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 28px 24px 48px; }
+  header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; justify-content: space-between; margin-bottom: 20px; }
+  .eyebrow { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 4px; }
+  h1 { font-size: 28px; line-height: 1.2; margin: 0; font-weight: 650; }
+  .sub { color: var(--ink-2); margin: 6px 0 0; max-width: 720px; }
+  h2 { font-size: 15px; font-weight: 600; margin: 0; }
+  .card-sub { color: var(--muted); font-size: 13px; margin: 2px 0 12px; }
+
+  /* Filters */
+  .filters { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; margin: 0 0 20px; padding: 12px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+  .filters label { font-size: 13px; color: var(--ink-2); display: flex; gap: 8px; align-items: center; }
+  select, .seg button, .theme-btn {
+    font: inherit; font-size: 14px; color: var(--ink); background: var(--page);
+    border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; cursor: pointer;
+  }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: transparent; padding: 6px 12px; }
+  .seg button + button { border-left: 1px solid var(--border); }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .spacer { flex: 1; }
+  .theme-btn { font-size: 13px; }
+
+  /* KPI tiles */
+  .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+  .kpi .label { font-size: 13px; color: var(--ink-2); }
+  .kpi .value { font-size: 30px; font-weight: 650; line-height: 1.15; margin: 6px 0 4px; }
+  .kpi .delta { font-size: 13px; color: var(--ink-2); }
+  .up { color: var(--up-text); font-weight: 600; }
+  .down { color: var(--down-text); font-weight: 600; }
+
+  /* Cards grid */
+  .grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; min-width: 0; }
+  .span-12 { grid-column: span 12; } .span-8 { grid-column: span 8; } .span-4 { grid-column: span 4; } .span-6 { grid-column: span 6; }
+  .chart-box { position: relative; width: 100%; }
+  .card-head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+  .seg.small button { font-size: 13px; padding: 4px 12px; }
+  .h-280 { height: 280px; } .h-320 { height: 320px; } .h-340 { height: 340px; }
+
+  /* Takeaways */
+  #takeSub { color: var(--accent-text); font-size: 18px; font-weight: 700; line-height: 1.3; margin: 4px 0 12px; }
+  .takeaways { margin: 0; padding-left: 18px; color: var(--ink-2); font-size: 14px; }
+  .takeaways li { margin-bottom: 10px; }
+  .takeaways b { color: var(--ink); }
+
+  /* Heatmap */
+  .heat { display: grid; grid-template-columns: 44px repeat(12, minmax(0, 1fr)); gap: 2px; font-size: 12px; }
+  .heat .hdr { color: var(--muted); text-align: center; padding-bottom: 2px; }
+  .heat .yr { color: var(--muted); text-align: right; padding-right: 6px; line-height: 20px; font-variant-numeric: tabular-nums; }
+  .heat .cell { height: 20px; border-radius: 3px; outline: none; }
+  .heat .cell:hover, .heat .cell:focus-visible { box-shadow: 0 0 0 2px var(--ink); }
+  .heat .cell.na { background: transparent; border: 1px dashed var(--grid); }
+  .legend-ramp { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--muted); }
+  .legend-ramp .bar { width: 140px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, var(--heat-0), var(--heat-1)); }
+
+  /* Tooltip for custom (non Chart.js) marks */
+  #tip { position: fixed; pointer-events: none; z-index: 10; background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,.12); display: none; }
+  #tip b { display: block; font-size: 15px; }
+  #tip span { color: var(--ink-2); }
+
+  /* Table */
+  details { margin-top: 16px; }
+
+  /* Author chip (header) and contact section */
+  .author { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; text-align: right; }
+  .author .by { font-size: 13px; color: var(--ink-2); margin: 0; }
+  .author .by b { color: var(--ink); }
+  .btn { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 8px; padding: 8px 14px; cursor: pointer; border: 1px solid transparent; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-ghost { background: var(--surface); color: var(--ink); border-color: var(--border); }
+  .btn-ghost:hover { border-color: var(--axis); }
+  .btn:focus-visible, .seg button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .contact { margin-top: 16px; padding: 24px; }
+  .contact h2 { font-size: 22px; line-height: 1.25; text-wrap: balance; margin: 2px 0 10px; }
+  .contact .pitch { color: var(--ink-2); margin: 0 0 16px; max-width: 60ch; }
+  .contact-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .contact-email { margin: 12px 0 0; font-size: 14px; color: var(--ink-2); }
+  .contact-email span { color: var(--ink); font-weight: 600; user-select: all; }
+  .copy-note { font-size: 12.5px; color: var(--up-text); margin-left: 6px; }
+  summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+  .table-wrap { overflow-x: auto; margin-top: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; position: sticky; left: 0; background: var(--surface); }
+  thead th { color: var(--ink-2); font-weight: 600; }
+  tr.total td { font-weight: 650; }
+
+  footer { margin-top: 24px; color: var(--muted); font-size: 12.5px; }
+  footer p { margin: 4px 0; }
+  a { color: var(--accent); }
+
+  @media (max-width: 960px) {
+    .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .span-8, .span-4, .span-6 { grid-column: span 12; }
+  }
+  @media (max-width: 560px) {
+    .wrap { padding: 20px 16px 40px; }
+    h1 { font-size: 23px; }
+    .kpis { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .kpi { padding: 12px; }
+    .kpi .value { font-size: 22px; }
+    .heat { grid-template-columns: 34px repeat(12, minmax(0, 1fr)); gap: 1px; font-size: 10px; }
+    .spacer { display: none; }
+    .author { align-items: flex-start; text-align: left; }
+    .contact { padding: 18px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <p class="eyebrow">U.S. outbound travel · Data through June 2026</p>
+      <h1>International Air Travel Dashboard</h1>
+      <p class="sub">U.S. citizen international air departures by destination, January 2011 to June 2026. Public data from the U.S. National Travel and Tourism Office (NTTO).</p>
+    </div>
+    <div class="author">
+      <p class="by">By <b>Libardo Lambrano</b></p>
+      <a class="btn btn-ghost" href="#contact">Contact</a>
+    </div>
+  </header>
+
+  <div class="filters" role="group" aria-label="Filters">
+    <label>Destination
+      <select id="dest"></select>
+    </label>
+    <label>Trend period
+      <span class="seg" id="period">
+        <button type="button" data-p="all" aria-pressed="true">2011–2026</button>
+        <button type="button" data-p="2019" aria-pressed="false">Since 2019</button>
+        <button type="button" data-p="24" aria-pressed="false">Last 24 months</button>
+      </span>
+    </label>
+    <span class="spacer"></span>
+    <button type="button" class="theme-btn" id="theme">Toggle theme</button>
+  </div>
+
+  <section class="kpis" aria-label="Key figures">
+    <div class="kpi"><div class="label">Jan–Jun 2026 departures</div><div class="value" id="k1"></div><div class="delta" id="k1d"></div></div>
+    <div class="kpi"><div class="label">2025 full-year departures</div><div class="value" id="k2"></div><div class="delta" id="k2d"></div></div>
+    <div class="kpi"><div class="label">2025 vs. 2019 (pre-pandemic)</div><div class="value" id="k3"></div><div class="delta" id="k3d"></div></div>
+    <div class="kpi"><div class="label" id="k4l"></div><div class="value" id="k4"></div><div class="delta" id="k4d"></div></div>
+  </section>
+
+  <section class="grid">
+    <div class="card span-8">
+      <div class="card-head">
+        <h2 id="trendTitle">Yearly departures</h2>
+        <span class="seg small" id="gran" role="group" aria-label="Time grain">
+          <button type="button" data-g="month" aria-pressed="false">Monthly</button>
+          <button type="button" data-g="year" aria-pressed="true">Yearly</button>
+        </span>
+      </div>
+      <p class="card-sub" id="trendSub">Departures per year.</p>
+      <div class="chart-box h-320"><canvas id="trend" aria-label="Departures over time" role="img"></canvas></div>
+    </div>
+    <div class="card span-4">
+      <h2>Key takeaways</h2>
+      <p class="card-sub" id="takeSub">All destinations</p>
+      <ul class="takeaways" id="takeaways"></ul>
+    </div>
+
+    <div class="card span-6">
+      <h2>Where Americans fly: 2025</h2>
+      <p class="card-sub">Departures by destination and share of all air departures</p>
+      <div class="chart-box h-340"><canvas id="mix" aria-label="2025 departures by destination bar chart" role="img"></canvas></div>
+    </div>
+    <div class="card span-6">
+      <h2>Growth: Jan–Jun 2026 vs. Jan–Jun 2025</h2>
+      <p class="card-sub">Percent change in departures, same six months</p>
+      <div class="chart-box h-340"><canvas id="yoy" aria-label="Year over year change bar chart" role="img"></canvas></div>
+    </div>
+
+    <div class="card span-6">
+      <h2>Recovery: 2025 as % of 2019</h2>
+      <p class="card-sub">100% = pre-pandemic level. Every destination except Oceania is above it.</p>
+      <div class="chart-box h-340"><canvas id="recovery" aria-label="Recovery versus 2019 bar chart" role="img"></canvas></div>
+    </div>
+    <div class="card span-6">
+      <h2 id="heatTitle">Seasonality: departures by month</h2>
+      <p class="card-sub">Darker = more departures. Summer peaks every year; the 2020–21 collapse stands out.</p>
+      <div class="heat" id="heat" aria-label="Heatmap of monthly departures by year"></div>
+      <div class="legend-ramp"><span id="heatMin"></span><span class="bar"></span><span id="heatMax"></span></div>
+    </div>
+  </section>
+
+  <details class="card">
+    <summary>Data table: annual departures by destination</summary>
+    <div class="table-wrap"><table id="table"></table></div>
+  </details>
+
+  <section class="card contact" id="contact" aria-labelledby="contactTitle">
+    <p class="eyebrow">About the author</p>
+    <h2 id="contactTitle">Libardo Lambrano</h2>
+    <p class="pitch">Marketing analytics and commercial strategy leader in hospitality and travel, based in Orlando. Questions or comments about this dashboard are welcome.</p>
+    <div class="contact-actions">
+      <a class="btn btn-primary" href="mailto:libardo@syndikomm.com?subject=International%20Air%20Travel%20Dashboard">Email me</a>
+      <a class="btn btn-ghost" href="https://www.linkedin.com/in/libardo-lambrano/" target="_blank" rel="noopener">Connect on LinkedIn</a>
+    </div>
+    <p class="contact-email">Email: <span id="emailAddr">libardo@syndikomm.com</span> <button type="button" class="btn btn-ghost" id="copyEmail" style="padding:4px 10px;font-size:12.5px;">Copy</button><span class="copy-note" id="copyNote" hidden>Copied</span></p>
+  </section>
+
+  <footer>
+    <p><b>Definition.</b> International air departures = the 8 overseas regions (all air) + Mexico (Air) + Canada (Air). Land and sea trips to Mexico and Canada are excluded. Counts are trips, not unique travelers.</p>
+    <p><b>Source.</b> U.S. Department of Commerce, International Trade Administration, National Travel and Tourism Office (NTTO), <a href="https://www.trade.gov/us-international-air-travel-statistics-i-92-data">US International Air Travel Statistics (I-92 / APIS)</a>, workbook dated September 3, 2026. 2026 covers January–June only.</p>
+    <p>Dashboard by Libardo Lambrano · <a href="https://www.linkedin.com/in/libardo-lambrano/">LinkedIn</a></p>
+  </footer>
+</div>
+<div id="tip" role="tooltip"></div>
+
+<script src="vendor/chart.umd.js"></script>
+<script src="data/dashboard-data.js"></script>
+<script>
+(() => {
+  const D = window.DASH_DATA;
+  const DEST = D.destinations;
+  const MONTHS = D.months;                       // "YYYY-MM"
+  const MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const LAST_YEAR = +MONTHS[MONTHS.length - 1].slice(0, 4);   // 2026
+  const LAST_MONTH = +MONTHS[MONTHS.length - 1].slice(5, 7);  // 6
+  const state = { dest: "All", period: "all", gran: "year" };
+  const charts = {};
+
+  // ---------- data helpers ----------
+  const total = MONTHS.map((_, i) => DEST.reduce((s, d) => s + D.values[d][i], 0));
+  const series = d => d === "All" ? total : D.values[d];
+  const idx = (y, m) => MONTHS.indexOf(`${y}-${String(m).padStart(2, "0")}`);
+  const sumRange = (arr, y, m1, m2) => { let s = 0; for (let m = m1; m <= m2; m++) { const i = idx(y, m); if (i >= 0) s += arr[i]; } return s; };
+  const annual = (arr, y) => sumRange(arr, y, 1, 12);
+  const ytd = (arr, y) => sumRange(arr, y, 1, LAST_MONTH);
+
+  // ---------- formatting ----------
+  const fmtM = v => v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? Math.round(v / 1e3) + "K" : String(v);
+  const fmtN = v => v.toLocaleString("en-US");
+  const pct = (v, dp = 1) => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v * 100).toFixed(dp) + "%";
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const label = d => d === "All" ? "All destinations" : d;
+
+  // ---------- filters ----------
+  const sel = document.getElementById("dest");
+  ["All", ...DEST].forEach(d => { const o = document.createElement("option"); o.value = d; o.textContent = label(d); sel.appendChild(o); });
+  sel.addEventListener("change", () => { state.dest = sel.value; render(); });
+  const setGran = g => {
+    state.gran = g;
+    document.querySelectorAll("#gran button").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.g === g)));
+  };
+  document.querySelectorAll("#period button").forEach(b => b.addEventListener("click", () => {
+    state.period = b.dataset.p;
+    document.querySelectorAll("#period button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    // The full 2011–2026 range opens in Yearly view; shorter periods open in Monthly view
+    setGran(state.period === "all" ? "year" : "month");
+    renderTrend();
+  }));
+  document.querySelectorAll("#gran button").forEach(b => b.addEventListener("click", () => { setGran(b.dataset.g); renderTrend(); }));
+  document.getElementById("theme").addEventListener("click", () => {
+    const root = document.documentElement;
+    const isDark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = isDark ? "light" : "dark";
+    render();
+  });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
+
+  // ---------- KPI tiles ----------
+  function setDelta(el, v, text) {
+    el.textContent = "";
+    const s = document.createElement("span");
+    s.className = v >= 0 ? "up" : "down";
+    s.textContent = (v >= 0 ? "▲ " : "▼ ") + pct(v);
+    el.append(s, document.createTextNode(" " + text));
+  }
+  function renderKPIs() {
+    const a = series(state.dest);
+    const h26 = ytd(a, LAST_YEAR), h25 = ytd(a, LAST_YEAR - 1);
+    const y25 = annual(a, 2025), y24 = annual(a, 2024), y19 = annual(a, 2019);
+    document.getElementById("k1").textContent = fmtM(h26);
+    setDelta(document.getElementById("k1d"), h26 / h25 - 1, "vs. Jan–Jun 2025");
+    document.getElementById("k2").textContent = fmtM(y25);
+    setDelta(document.getElementById("k2d"), y25 / y24 - 1, "vs. 2024");
+    document.getElementById("k3").textContent = Math.round(y25 / y19 * 100) + "%";
+    document.getElementById("k3d").textContent = fmtM(y19) + " in 2019 → " + fmtM(y25) + " in 2025";
+    if (state.dest === "All") {
+      const top = DEST.map(d => [d, annual(D.values[d], 2025)]).sort((x, y) => y[1] - x[1])[0];
+      document.getElementById("k4l").textContent = "Top destination, 2025";
+      document.getElementById("k4").textContent = top[0];
+      document.getElementById("k4d").textContent = Math.round(top[1] / y25 * 100) + "% of all air departures";
+    } else {
+      const all25 = annual(total, 2025);
+      const rank = DEST.map(d => [d, annual(D.values[d], 2025)]).sort((x, y) => y[1] - x[1]).findIndex(r => r[0] === state.dest) + 1;
+      document.getElementById("k4l").textContent = "Share of air departures, 2025";
+      document.getElementById("k4").textContent = (y25 / all25 * 100).toFixed(1) + "%";
+      document.getElementById("k4d").textContent = "Rank " + rank + " of " + DEST.length + " destinations";
+    }
+  }
+
+  // ---------- Chart.js defaults ----------
+  function chartDefaults() {
+    Chart.defaults.font.family = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+    Chart.defaults.font.size = 12;
+    Chart.defaults.color = css("--muted");
+    Chart.defaults.borderColor = css("--grid");
+    Chart.defaults.animation = false;
+    Object.assign(Chart.defaults.plugins.tooltip, {
+      backgroundColor: css("--surface"), titleColor: css("--ink-2"), bodyColor: css("--ink"),
+      borderColor: css("--border"), borderWidth: 1, padding: 10, cornerRadius: 8,
+      titleFont: { weight: "normal", size: 12 }, bodyFont: { weight: "600", size: 13 }, displayColors: false,
+    });
+  }
+  const draw = (id, cfg) => { if (charts[id]) charts[id].destroy(); charts[id] = new Chart(document.getElementById(id), cfg); };
+
+  // Shaded COVID band + vertical crosshair, as small inline plugins
+  const covidBand = {
+    id: "covidBand",
+    beforeDatasetsDraw(c) {
+      const labels = c.data.labels, x = c.scales.x, { top, bottom } = c.chartArea;
+      const yearly = labels[0].length === 4;
+      const i0 = labels.indexOf(yearly ? "2020" : "2020-03"), i1 = labels.indexOf(yearly ? "2021" : "2021-12");
+      if (i0 < 0 && i1 < 0) return;
+      // In yearly (bar) view, widen the band to cover the full 2020 and 2021 bars
+      const half = yearly && labels.length > 1 ? (x.getPixelForValue(1) - x.getPixelForValue(0)) / 2 : 0;
+      const a = i0 < 0 ? c.chartArea.left : x.getPixelForValue(i0) - half;
+      const b = i1 < 0 ? c.chartArea.right : x.getPixelForValue(i1) + half;
+      c.ctx.save(); c.ctx.fillStyle = css("--band"); c.ctx.fillRect(a, top, b - a, bottom - top);
+      c.ctx.fillStyle = css("--muted"); c.ctx.font = "12px system-ui, sans-serif"; c.ctx.fillText("COVID-19", a + 6, top + 14); c.ctx.restore();
+    },
+  };
+  const crosshair = {
+    id: "crosshair",
+    afterDatasetsDraw(c) {
+      const act = c.tooltip && c.tooltip.getActiveElements();
+      if (!act || !act.length) return;
+      const x = act[0].element.x, { top, bottom } = c.chartArea;
+      c.ctx.save(); c.ctx.strokeStyle = css("--axis"); c.ctx.lineWidth = 1;
+      c.ctx.beginPath(); c.ctx.moveTo(x, top); c.ctx.lineTo(x, bottom); c.ctx.stroke(); c.ctx.restore();
+    },
+  };
+
+  // ---------- Trend line ----------
+  function renderTrend() {
+    // Period button labels follow the grain
+    document.querySelector('#period button[data-p="24"]').textContent = state.gran === "year" ? "Last 3 years" : "Last 24 months";
+    if (state.gran === "year") return renderYearly();
+    document.getElementById("trendSub").textContent = "Departures per month." + (state.period === "all" ? " Shaded area: COVID-19 travel restrictions (Mar 2020 – Dec 2021)." : "");
+    const a = series(state.dest);
+    let start = 0;
+    if (state.period === "2019") start = MONTHS.indexOf("2019-01");
+    if (state.period === "24") start = MONTHS.length - 24;
+    const labels = MONTHS.slice(start), data = a.slice(start);
+    document.getElementById("trendTitle").textContent = "Monthly departures: " + label(state.dest);
+    draw("trend", {
+      type: "line",
+      data: { labels, datasets: [{ label: label(state.dest), data, borderColor: css("--accent"), backgroundColor: css("--accent"), borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, pointHoverBorderWidth: 2, pointHoverBorderColor: css("--surface"), tension: 0.15 }] },
+      options: {
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: {
+            title: it => { const [y, m] = it[0].label.split("-"); return MN[+m - 1] + " " + y; },
+            label: it => fmtN(it.parsed.y) + " departures",
+          } },
+        },
+        scales: {
+          x: { grid: { display: false }, border: { color: css("--axis") }, ticks: {
+            autoSkip: false, maxRotation: 0,
+            callback(v) { const l = this.getLabelForValue(v); const n = labels.length;
+              if (n <= 30) return l.endsWith("-01") || v === 0 ? (l.endsWith("-01") ? l.slice(0, 4) : MN[+l.slice(5) - 1] + " " + l.slice(0, 4)) : (+l.slice(5) % 3 === 1 ? MN[+l.slice(5) - 1] : null);
+              const step = n > 120 ? 2 : 1; return l.endsWith("-01") && (+l.slice(0, 4) % step === 1 % step || n <= 120) ? l.slice(0, 4) : null; },
+          } },
+          y: { beginAtZero: true, border: { display: false }, ticks: { callback: v => fmtM(v), maxTicksLimit: 6 } },
+        },
+      },
+      plugins: [covidBand, crosshair],
+    });
+  }
+
+  // ---------- Yearly bars (toggle on the trend card) ----------
+  function renderYearly() {
+    const a = series(state.dest);
+    const first = state.period === "2019" ? 2019 : state.period === "24" ? LAST_YEAR - 2 : 2011;
+    const years = []; for (let y = first; y <= LAST_YEAR; y++) years.push(y);
+    const partial = LAST_MONTH < 12;
+    const rows = years.map(y => {
+      const v = y === LAST_YEAR && partial ? ytd(a, y) : annual(a, y);
+      const prev = y === LAST_YEAR && partial ? ytd(a, y - 1) : annual(a, y - 1);
+      return { y, v, chg: y > 2011 ? v / prev - 1 : null, partial: y === LAST_YEAR && partial };
+    });
+    const ytdLabel = "Jan–" + MN[LAST_MONTH - 1];
+    document.getElementById("trendTitle").textContent = "Yearly departures: " + label(state.dest);
+    document.getElementById("trendSub").textContent = "Departures per year. " + LAST_YEAR + " shows " + ytdLabel + " only (muted bar)." + (first <= 2020 ? " Shaded area: COVID-19 travel restrictions." : "");
+    const narrow = innerWidth < 560;
+    draw("trend", {
+      type: "bar",
+      data: { labels: rows.map(r => String(r.y)), datasets: [{ data: rows.map(r => r.v), backgroundColor: rows.map(r => r.partial ? css("--accent-soft") : css("--accent")), borderRadius: 4, borderSkipped: "bottom", barPercentage: 0.8, categoryPercentage: 0.9, maxBarThickness: 64 }] },
+      options: {
+        maintainAspectRatio: false,
+        layout: { padding: { top: 18 } },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: {
+            title: it => { const r = rows[it[0].dataIndex]; return r.partial ? r.y + " (" + ytdLabel + ")" : String(r.y); },
+            label: it => fmtN(it.parsed.y) + " departures",
+            afterLabel: it => { const r = rows[it.dataIndex]; return r.chg === null ? "" : pct(r.chg) + (r.partial ? " vs. " + ytdLabel + " " + (r.y - 1) : " vs. " + (r.y - 1)); },
+          } },
+        },
+        scales: {
+          x: { grid: { display: false }, border: { color: css("--axis") }, ticks: { maxRotation: 0, autoSkip: false, callback(v) { const y = this.getLabelForValue(v); if (!(narrow && rows.length > 8)) return y; return (LAST_YEAR - +y) % 2 === 0 ? "’" + y.slice(2) : null; } } },
+          y: { beginAtZero: true, border: { display: false }, ticks: { callback: v => fmtM(v), maxTicksLimit: 6 } },
+        },
+      },
+      plugins: [covidBand, {
+        id: "yearLabels",
+        afterDatasetsDraw(c) {
+          if (narrow && rows.length > 8) return; // tooltips carry the values on small screens
+          const ctx = c.ctx; ctx.save(); ctx.font = "11px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillStyle = css("--ink-2");
+          c.getDatasetMeta(0).data.forEach((bar, i) => ctx.fillText(fmtM(rows[i].v).replace(".0M", "M"), bar.x, bar.y - 4));
+          ctx.restore();
+        },
+      }],
+    });
+  }
+
+  // ---------- Horizontal bar helper ----------
+  function hbar(id, rows, opts) {
+    const hi = state.dest;
+    const colorFor = (r, base) => hi === "All" || r.d === hi ? base(r) : css("--dim");
+    draw(id, {
+      type: "bar",
+      data: { labels: rows.map(r => r.d), datasets: [{ data: rows.map(r => r.v), backgroundColor: rows.map(r => colorFor(r, opts.color)), borderRadius: 4, borderSkipped: false, barPercentage: 0.8, categoryPercentage: 0.9, base: opts.base }] },
+      options: {
+        indexAxis: "y", maintainAspectRatio: false,
+        layout: { padding: { right: 56 } },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { title: it => it[0].label, label: it => opts.tip(rows[it.dataIndex]) } },
+        },
+        scales: {
+          x: { min: opts.min, max: opts.max, grid: { color: css("--grid") }, border: { display: false }, ticks: { callback: opts.tick, maxTicksLimit: innerWidth < 560 ? 5 : 8, stepSize: opts.step, maxRotation: 0 } },
+          y: { grid: { display: false }, border: { color: css("--axis") }, ticks: { color: css("--ink-2"), font: { size: 12.5 } } },
+        },
+        onClick: (e, els) => { if (els.length) { const d = rows[els[0].index].d; sel.value = state.dest = state.dest === d ? "All" : d; render(); } },
+      },
+      plugins: [{
+        id: "valueLabels",
+        afterDatasetsDraw(c) {
+          const ctx = c.ctx, meta = c.getDatasetMeta(0);
+          ctx.save(); ctx.font = "12px system-ui, sans-serif"; ctx.textBaseline = "middle";
+          meta.data.forEach((bar, i) => {
+            const r = rows[i], txt = opts.label(r);
+            const neg = opts.base !== undefined ? r.v < opts.base : r.v < 0;
+            ctx.fillStyle = hi === "All" || r.d === hi ? css("--ink-2") : css("--muted");
+            const w = ctx.measureText(txt).width;
+            if (neg && bar.x - 6 - w < c.chartArea.left + 2) {
+              // Not enough room left of the bar: put the label on the empty side of the baseline
+              ctx.textAlign = "left";
+              ctx.fillText(txt, c.scales.x.getPixelForValue(opts.base !== undefined ? opts.base : 0) + 6, bar.y);
+            } else {
+              ctx.textAlign = neg ? "right" : "left";
+              ctx.fillText(txt, bar.x + (neg ? -6 : 6), bar.y);
+            }
+          });
+          ctx.restore();
+        },
+      }, ...(opts.refLine !== undefined ? [{
+        id: "ref", afterDraw(c) { const x = c.scales.x.getPixelForValue(opts.refLine), { top, bottom } = c.chartArea;
+          c.ctx.save(); c.ctx.strokeStyle = css("--ink-2"); c.ctx.setLineDash([4, 3]); c.ctx.lineWidth = 1; c.ctx.beginPath(); c.ctx.moveTo(x, top); c.ctx.lineTo(x, bottom); c.ctx.stroke(); c.ctx.restore(); },
+      }] : [])],
+    });
+  }
+
+  function renderBars() {
+    const all25 = annual(total, 2025);
+    const mix = DEST.map(d => ({ d, v: annual(D.values[d], 2025) })).sort((a, b) => b.v - a.v);
+    hbar("mix", mix, {
+      color: () => css("--accent"), min: 0,
+      tick: v => fmtM(v),
+      label: r => fmtM(r.v) + " · " + Math.round(r.v / all25 * 100) + "%",
+      tip: r => fmtN(r.v) + " departures (" + (r.v / all25 * 100).toFixed(1) + "% share)",
+    });
+
+    const yoy = DEST.map(d => ({ d, v: ytd(D.values[d], LAST_YEAR) / ytd(D.values[d], LAST_YEAR - 1) - 1, a: ytd(D.values[d], LAST_YEAR), b: ytd(D.values[d], LAST_YEAR - 1) })).sort((a, b) => b.v - a.v);
+    const narrow = innerWidth < 560;
+    const m = Math.ceil(Math.max(...yoy.map(r => Math.abs(r.v))) * (narrow ? 2 : 1.45) * 10) / 10;
+    hbar("yoy", yoy, {
+      color: r => r.v >= 0 ? css("--pos") : css("--neg"), min: -m, max: m, step: narrow ? 0.2 : 0.1, refLine: 0,
+      tick: v => pct(v, 0),
+      label: r => pct(r.v),
+      tip: r => pct(r.v) + " · " + fmtN(r.b) + " → " + fmtN(r.a),
+    });
+
+    const rec = DEST.map(d => ({ d, v: annual(D.values[d], 2025) / annual(D.values[d], 2019), a: annual(D.values[d], 2025), b: annual(D.values[d], 2019) })).sort((a, b) => b.v - a.v);
+    hbar("recovery", rec, {
+      color: r => r.v >= 1 ? css("--pos") : css("--neg"), base: 1, min: 0.8, max: Math.ceil(Math.max(...rec.map(r => r.v)) * 1.12 / 0.2) * 0.2, step: narrow ? 0.4 : 0.2, refLine: 1,
+      tick: v => Math.round(v * 100) + "%",
+      label: r => Math.round(r.v * 100) + "%",
+      tip: r => Math.round(r.v * 100) + "% of 2019 · " + fmtN(r.b) + " → " + fmtN(r.a),
+    });
+  }
+
+  // ---------- Heatmap ----------
+  const tip = document.getElementById("tip");
+  function showTip(e, strong, sub) {
+    tip.textContent = "";
+    const b = document.createElement("b"); b.textContent = strong;
+    const s = document.createElement("span"); s.textContent = sub;
+    tip.append(b, s); tip.style.display = "block";
+    const r = e.target.getBoundingClientRect();
+    const x = Math.min(r.left + r.width / 2 + 10, innerWidth - tip.offsetWidth - 8);
+    tip.style.left = x + "px"; tip.style.top = (r.top - tip.offsetHeight - 8) + "px";
+  }
+  function mix(c0, c1, t) {
+    const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+    const a = p(c0), b = p(c1);
+    return "rgb(" + a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(",") + ")";
+  }
+  function renderHeat() {
+    const a = series(state.dest), el = document.getElementById("heat");
+    document.getElementById("heatTitle").textContent = "Seasonality: " + label(state.dest);
+    el.textContent = "";
+    const max = Math.max(...a), c0 = css("--heat-0"), c1 = css("--heat-1");
+    el.appendChild(Object.assign(document.createElement("div"), { className: "hdr" }));
+    MN.forEach(m => el.appendChild(Object.assign(document.createElement("div"), { className: "hdr", textContent: m[0] + (innerWidth > 560 ? m.slice(1) : "") })));
+    for (let y = 2011; y <= LAST_YEAR; y++) {
+      el.appendChild(Object.assign(document.createElement("div"), { className: "yr", textContent: y }));
+      for (let m = 1; m <= 12; m++) {
+        const i = idx(y, m), c = document.createElement("div");
+        if (i < 0) { c.className = "cell na"; c.title = MN[m - 1] + " " + y + ": not yet published"; el.appendChild(c); continue; }
+        const v = a[i];
+        c.className = "cell"; c.tabIndex = 0;
+        c.style.background = mix(c0, c1, Math.pow(v / max, 0.9));
+        c.setAttribute("aria-label", MN[m - 1] + " " + y + ": " + fmtN(v));
+        const on = e => showTip(e, fmtN(v), MN[m - 1] + " " + y);
+        c.addEventListener("pointerenter", on); c.addEventListener("focus", on);
+        c.addEventListener("pointerleave", () => tip.style.display = "none"); c.addEventListener("blur", () => tip.style.display = "none");
+        el.appendChild(c);
+      }
+    }
+    document.getElementById("heatMin").textContent = "0";
+    document.getElementById("heatMax").textContent = fmtM(max);
+  }
+
+  // ---------- Table ----------
+  function renderTable() {
+    const t = document.getElementById("table"); t.textContent = "";
+    const years = []; for (let y = 2011; y <= LAST_YEAR; y++) years.push(y);
+    const thead = t.createTHead().insertRow();
+    ["Destination", ...years.map(y => y === LAST_YEAR ? y + " (Jan–Jun)" : String(y))].forEach(h => { const th = document.createElement("th"); th.textContent = h; thead.appendChild(th); });
+    const body = t.createTBody();
+    [...DEST, "All"].forEach(d => {
+      const r = body.insertRow(); if (d === "All") r.className = "total";
+      r.insertCell().textContent = d === "All" ? "Total air departures" : d;
+      years.forEach(y => r.insertCell().textContent = fmtN(annual(series(d), y)));
+    });
+  }
+
+  // ---------- Takeaways (computed from the data, so they follow the destination filter) ----------
+  function renderTakeaways() {
+    const ul = document.getElementById("takeaways"); ul.textContent = "";
+    const d = state.dest, a = series(d), isAll = d === "All";
+    document.getElementById("takeSub").textContent = label(d);
+    const fullYears = []; for (let y = 2011; y <= (LAST_MONTH === 12 ? LAST_YEAR : LAST_YEAR - 1); y++) fullYears.push(y);
+    const y25 = annual(a, 2025), y24 = annual(a, 2024), y19 = annual(a, 2019);
+    const peakYear = fullYears.reduce((best, y) => annual(a, y) > annual(a, best) ? y : best, fullYears[0]);
+    const h26 = ytd(a, LAST_YEAR), h25 = ytd(a, LAST_YEAR - 1), growth = h26 / h25 - 1;
+    let lastDrop = null;
+    for (let y = LAST_YEAR - 1; y > 2011; y--) if (ytd(a, y) < ytd(a, y - 1)) { lastDrop = y; break; }
+    const ytdLbl = "Jan–" + MN[LAST_MONTH - 1];
+    const yoy = DEST.map(x => [x, ytd(D.values[x], LAST_YEAR) / ytd(D.values[x], LAST_YEAR - 1) - 1]).sort((p, q) => q[1] - p[1]);
+    const rec = DEST.map(x => [x, annual(D.values[x], 2025) / annual(D.values[x], 2019)]).sort((p, q) => q[1] - p[1]);
+    const size = DEST.map(x => [x, annual(D.values[x], 2025)]).sort((p, q) => q[1] - p[1]);
+    const allRec = annual(total, 2025) / annual(total, 2019);
+
+    // Typical peak months: average share of the year's departures, 2023-2025
+    const share = MN.map((_, m) => [2023, 2024, 2025].reduce((s, y) => s + a[idx(y, m + 1)] / annual(a, y), 0) / 3);
+    const top2 = share.map((v, m) => [m, v]).sort((p, q) => q[1] - p[1]).slice(0, 2).map(r => r[0]).sort((p, q) => p - q);
+    const peakI = a.indexOf(Math.max(...a));
+
+    const vs = (v, what) => Math.abs(v) < 0.0005 ? "flat vs. " + what : pct(v) + " vs. " + what;
+    const items = [];
+    // 1. Size and record
+    items.push([
+      peakYear === 2025 ? "Record year. " : `Below its ${peakYear} peak. `,
+      isAll
+        ? `${fmtM(y25)} air departures in 2025, ${vs(y25 / y24 - 1, "2024")}.`
+        : `${fmtM(y25)} departures in 2025 (${vs(y25 / y24 - 1, "2024")}), the no. ${size.findIndex(r => r[0] === d) + 1} destination with ${(y25 / annual(total, 2025) * 100).toFixed(1)}% of all air departures.`,
+    ]);
+    // 2. Momentum this year
+    const rankG = yoy.findIndex(r => r[0] === d) + 1;
+    items.push([
+      growth <= -0.05 ? `Falling in ${LAST_YEAR}. ` : growth < 0 ? "Growth has stalled. " : `Growing in ${LAST_YEAR}. `,
+      `${ytdLbl} ${LAST_YEAR} is ${pct(growth)} vs. the same months of ${LAST_YEAR - 1}` +
+        (growth < 0 && lastDrop === LAST_YEAR - 1 ? `, a second straight ${ytdLbl} decline` : growth < 0 && lastDrop ? `, the first ${ytdLbl} decline since ${lastDrop}` : "") +
+        (isAll ? "." : `, rank ${rankG} of ${DEST.length} for growth.`),
+    ]);
+    // 3. Destination mix (all) or recovery vs. 2019 (one destination)
+    if (isAll) {
+      items.push(["Mixed by destination. ", `${yoy[0][0]} (${pct(yoy[0][1])}) leads growth; ${yoy[yoy.length - 1][0]} (${pct(yoy[yoy.length - 1][1])}) and ${yoy[yoy.length - 2][0]} (${pct(yoy[yoy.length - 2][1])}) fell most. Air travel overall is at ${Math.round(allRec * 100)}% of 2019.`]);
+    } else {
+      const r = y25 / y19;
+      items.push([
+        r >= 1 ? "Above pre-pandemic levels. " : "Not yet recovered. ",
+        `2025 was ${Math.round(r * 100)}% of 2019, ${r >= allRec ? "ahead of" : "behind"} the ${Math.round(allRec * 100)}% for all destinations (rank ${rec.findIndex(x => x[0] === d) + 1} of ${DEST.length}).`,
+      ]);
+    }
+    // 4. Seasonality
+    items.push([
+      `Peak season: ${MN[top2[0]]} and ${MN[top2[1]]}. `,
+      `Those two months carry ${Math.round((share[top2[0]] + share[top2[1]]) * 100)}% of a typical year's departures (2023–2025). The busiest month on record is ${MN[+MONTHS[peakI].slice(5) - 1]} ${MONTHS[peakI].slice(0, 4)} with ${fmtM(a[peakI])}.`,
+    ]);
+    items.forEach(([b, t]) => { const li = document.createElement("li"); const s = document.createElement("b"); s.textContent = b; li.append(s, document.createTextNode(t)); ul.appendChild(li); });
+  }
+
+  function render() { chartDefaults(); renderKPIs(); renderTrend(); renderBars(); renderHeat(); renderTable(); renderTakeaways(); }
+  render();
+  // Copy email address (falls back to selecting the text if the clipboard is unavailable)
+  document.getElementById("copyEmail").addEventListener("click", async () => {
+    const addr = document.getElementById("emailAddr"), note = document.getElementById("copyNote");
+    try { await navigator.clipboard.writeText(addr.textContent); note.hidden = false; setTimeout(() => { note.hidden = true; }, 2000); }
+    catch (e) { const r = document.createRange(); r.selectNodeContents(addr); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+  });
+
+  let rw; addEventListener("resize", () => { clearTimeout(rw); rw = setTimeout(render, 150); });
+})();
+</script>
+</body>
+</html>
